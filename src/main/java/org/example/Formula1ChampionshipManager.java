@@ -159,52 +159,59 @@ public class Formula1ChampionshipManager implements ChampionshipManager {
     }
 
 
-    public void addRace(String date, List<String> positions) {
-        // Manually or randomly add race and update driver stats
-    }
-
     public void saveToFile() {
-        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("store_data.txt"))) {
-            out.writeObject(drivers);
-            out.writeObject(races);
-            System.out.println("✅ Data saved to file.");
-
+        File file = new File("store_data.txt");
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file))) {
+            out.writeObject(drivers != null ? drivers : new ArrayList<Formula1Driver>());
+            out.writeObject(races != null ? races : new ArrayList<Race>());
+            out.flush(); // Ensure all data is written
+            System.out.println("✅ Data saved to file: " + file.getAbsolutePath() + ", Drivers: " + (drivers != null ? drivers.size() : 0) + ", Races: " + (races != null ? races.size() : 0));
+        } catch (NotSerializableException e) {
+            System.err.println("❌ Serialization error: " + e.getMessage() + ". Ensure Formula1Driver and Race implement Serializable.");
+            e.printStackTrace();
         } catch (IOException e) {
-            System.err.println("❌ Error saving data: " + e.getMessage());
+            System.err.println("❌ IO error saving data to " + file.getAbsolutePath() + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
-
     @SuppressWarnings("unchecked")
     public void loadFromFile() {
         File file = new File("store_data.txt");
         if (!file.exists()) {
-            System.out.println("ℹ️ No previous save file found.");
+            System.out.println("ℹ️ No previous save file found: " + file.getAbsolutePath());
             drivers = new ArrayList<>();
             races = new ArrayList<>();
             return;
         }
 
         try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(file))) {
-            drivers = (List<Formula1Driver>) in.readObject();
-            races = (List<Race>) in.readObject();
-            System.out.println("✅ Data loaded from file.");
-        } catch (IOException | ClassNotFoundException e) {
-            System.err.println("❌ Error loading data: " + e.getMessage());
+            Object obj1 = in.readObject();
+            Object obj2 = in.readObject();
+            if (obj1 instanceof List<?> && obj2 instanceof List<?>) {
+                drivers = (List<Formula1Driver>) obj1;
+                races = (List<Race>) obj2;
+                System.out.println("✅ Data loaded from file: " + drivers.size() + " drivers, " + races.size() + " races.");
+            } else {
+                throw new ClassCastException("Unexpected object types in file.");
+            }
+        } catch (IOException e) {
+            System.err.println("❌ IO error loading data: " + e.getMessage());
+            e.printStackTrace();
+            drivers = new ArrayList<>();
+            races = new ArrayList<>();
+        } catch (ClassNotFoundException e) {
+            System.err.println("❌ Class not found: " + e.getMessage());
+            e.printStackTrace();
+            drivers = new ArrayList<>();
+            races = new ArrayList<>();
+        } catch (ClassCastException e) {
+            System.err.println("❌ Type mismatch: " + e.getMessage());
             e.printStackTrace();
             drivers = new ArrayList<>();
             races = new ArrayList<>();
         }
     }
 
-    /**public void loadFromFile() {
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream("store_data.txt"))) {
-            drivers = (List<Formula1Driver>) in.readObject();
-            races = (List<Race>) in.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-    }*/
 
     public void generateRandomRace() {
         Collections.shuffle(drivers);
@@ -292,18 +299,6 @@ public class Formula1ChampionshipManager implements ChampionshipManager {
         return races.stream()
                 .sorted(Comparator.comparing(Race::getRaceDate))
                 .toList();
-    }
-
-    public int getDriverByPosition(String driverName) {
-        List<Formula1Driver> sortedDrivers = getAllDriversSortedByPointsDesc();
-
-        for (int i = 0; i < sortedDrivers.size(); i++) {
-            if (sortedDrivers.get(i).getName().equalsIgnoreCase(driverName)) {
-                return i + 1; // Position is 1-based
-            }
-        }
-
-        return -1; // Driver not found
     }
 
 
